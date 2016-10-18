@@ -516,7 +516,8 @@ describe 'GET /db/course_instance/:handle/my-course-level-sessions', ->
     admin = yield utils.initAdmin()
     yield utils.loginUser(admin)
     @level = yield utils.makeLevel({type: 'course'})
-    @campaign = yield utils.makeCampaign({}, {levels: [@level]})
+    @primerLevel = yield utils.makeLevel({primerLanguage: 'python', type: 'course'})
+    @campaign = yield utils.makeCampaign({}, {levels: [@level, @primerLevel]})
     @course = yield utils.makeCourse({free: true, releasePhase: 'released'}, {campaign: @campaign})
     @student = yield utils.initUser({role: 'student'})
     @prepaid = yield utils.makePrepaid({creator: @teacher.id})
@@ -525,6 +526,7 @@ describe 'GET /db/course_instance/:handle/my-course-level-sessions', ->
     @classroom = yield utils.makeClassroom({aceConfig: { language: 'javascript' }}, { members })
     @courseInstance = yield utils.makeCourseInstance({}, { @course, @classroom })
     @session = yield utils.makeLevelSession({codeLanguage: 'javascript'}, {@level, creator: @student})
+    @primerSession = yield utils.makeLevelSession({codeLanguage: 'python'}, {level:@primerLevel, creator: @student})
     otherLevel = yield utils.makeLevel({type: 'course'})
     
     # sessions that should NOT be returned by this endpoint
@@ -540,7 +542,11 @@ describe 'GET /db/course_instance/:handle/my-course-level-sessions', ->
     url = utils.getURL("/db/course_instance/#{@courseInstance.id}/my-course-level-sessions")
     yield utils.loginUser(@student)
     [res, body] = yield request.getAsync({url, json: true})
-    expect(res.body.length).toBe(1)
-    expect(res.body[0]._id).toBe(@session.id)
+    expect(res.body.length).toBe(2)
+    ids = (session._id for session in res.body)
+    expect(_.contains(ids, @session.id)).toBe(true)
+    
+    # make sure this returns primer sessions, even though their codeLanguage doesn't match the classroom setting
+    expect(_.contains(ids, @primerSession.id)).toBe(true)
     done()
     

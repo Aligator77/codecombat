@@ -12,7 +12,8 @@ module.exports =
     level = yield database.getDocFromHandle(req, Level)
     if not level
       throw new errors.NotFound('Level not found.')
-      
+    levelOriginal = level.get('original')
+
     sessionQuery =
       level:
         original: level.get('original').toString()
@@ -31,7 +32,16 @@ module.exports =
       classroom = yield Classroom.findById(courseInstance.get('classroomID'))
       if not classroom
         throw new errors.NotFound('Classroom not found.')
-      language = classroom.get('aceConfig.language')
+      courseID = courseInstance.get('courseID')
+      classroomCourse = _.find(classroom.get('courses'), (c) -> c._id.equals(courseID))
+      targetLevel = null
+      for courseLevel in classroomCourse.levels
+        if courseLevel.original.equals(levelOriginal)
+          targetLevel = courseLevel
+          break
+      if not targetLevel
+        throw new errors.NotFound('Level not found in classroom courses')
+      language = targetLevel.primerLanguage or classroom.get('aceConfig.language')
       if language
         sessionQuery.codeLanguage = language
 
@@ -66,10 +76,10 @@ module.exports =
         classrooms = yield Classroom.find({ _id: { $in: classroomIDs }})
 
       classroomWithLevel = null
+      targetLevel = null
       courseID = null
       classroomMap = {}
       classroomMap[classroom.id] = classroom for classroom in classrooms
-      levelOriginal = level.get('original')
       for courseInstance in courseInstances
         classroomID = courseInstance.get('classroomID')
         continue unless classroomID
@@ -79,6 +89,7 @@ module.exports =
         classroomCourse = _.find(classroom.get('courses'), (c) -> c._id.equals(courseID))
         for courseLevel in classroomCourse.levels
           if courseLevel.original.equals(levelOriginal)
+            targetLevel = courseLevel
             classroomWithLevel = classroom
             break
         break if classroomWithLevel
@@ -90,7 +101,7 @@ module.exports =
       unless course.get('free') or req.user.isEnrolled()
         throw new errors.PaymentRequired('You must be enrolled to access this content')
         
-      lang = classroomWithLevel.get('aceConfig')?.language
+      lang = targetLevel.primerLanguage or classroomWithLevel.get('aceConfig')?.language
       attrs.codeLanguage = lang if lang
       
     else

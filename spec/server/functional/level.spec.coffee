@@ -102,7 +102,8 @@ describe 'GET /db/level/:handle/session', ->
       @level.set('original', new mongoose.Types.ObjectId())
       @level.save()
       
-      @campaign = yield utils.makeCampaign({}, {levels: [@level]})
+      @primerLevel = yield utils.makeLevel({type: 'course', primerLanguage: 'javascript'})
+      @campaign = yield utils.makeCampaign({}, {levels: [@level, @primerLevel]})
       @course = yield utils.makeCourse({free: true, releasePhase: 'released'}, {campaign: @campaign})
       @student = yield utils.initUser({role: 'student'})
       @members = [@student]
@@ -143,10 +144,14 @@ describe 'GET /db/level/:handle/session', ->
       done()
       
     describe 'when courseInstance is included in the query', ->
-      it 'sets the language based on the related course', utils.wrap (done) ->
+      it 'sets the language based on the level primerLanguage and classroom language setting', utils.wrap (done) ->
+        
+        # make python classroom
         yield utils.loginUser(@teacher)
         @pythonClassroom = yield utils.makeClassroom({aceConfig: { language: 'python' }}, { @members })
         @pythonCourseInstance = yield utils.makeCourseInstance({}, { @course, classroom: @pythonClassroom, @members })
+        
+        # try making javascript classroom session, make sure it is idempotent
         yield utils.loginUser(@student)
         [res, body] = yield request.getAsync { uri: @url, qs: {courseInstance: @courseInstance.id}, json: true }
         expect(res.statusCode).toBe(201)
@@ -155,6 +160,8 @@ describe 'GET /db/level/:handle/session', ->
         [res, body] = yield request.getAsync { uri: @url, qs: {courseInstance: @courseInstance.id}, json: true }
         expect(res.statusCode).toBe(200)
         expect(res.body._id).toBe(javascriptSession._id)
+        
+        # try python course
         [res, body] = yield request.getAsync { uri: @url, qs: {courseInstance: @pythonCourseInstance.id}, json: true }
         expect(res.statusCode).toBe(201)
         pythonSession = res.body
@@ -163,6 +170,16 @@ describe 'GET /db/level/:handle/session', ->
         [res, body] = yield request.getAsync { uri: @url, qs: {courseInstance: @pythonCourseInstance.id}, json: true }
         expect(res.statusCode).toBe(200)
         expect(res.body._id).toBe(pythonSession._id)
+        
+        # try primer level, which ta
+        primerUrl = getURL("/db/level/#{@primerLevel.id}/session")
+        [res, body] = yield request.getAsync { uri: primerUrl, qs: {courseInstance: @pythonCourseInstance.id}, json: true }
+        expect(res.statusCode).toBe(201)
+        primerSession = res.body
+        expect(primerSession.codeLanguage).toBe('javascript')
+        [res, body] = yield request.getAsync { uri: primerUrl, qs: {courseInstance: @pythonCourseInstance.id}, json: true }
+        expect(res.statusCode).toBe(200)
+        expect(res.body._id).toBe(primerSession._id)
         done()
       
     describe 'when the course is not free', ->
