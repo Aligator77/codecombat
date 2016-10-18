@@ -259,6 +259,7 @@ describe 'GET /db/course_instance/:handle/levels/:levelOriginal/next', ->
       level: original: @levelA.get('original').toString()
       permissions: simplePermissions
       state: complete: true
+      codeLanguage: 'javascript'
     yield @sessionA.save()
 
     levelJSON = { name: 'B', permissions: [{access: 'owner', target: admin.id}], type: 'course' }
@@ -271,6 +272,7 @@ describe 'GET /db/course_instance/:handle/levels/:levelOriginal/next', ->
       creator: @teacher.id
       level: original: @levelB.get('original').toString()
       permissions: simplePermissions
+      codeLanguage: 'javascript'
     yield @sessionB.save()
 
     levelJSON = { name: 'C', permissions: [{access: 'owner', target: admin.id}], type: 'course' }
@@ -289,6 +291,7 @@ describe 'GET /db/course_instance/:handle/levels/:levelOriginal/next', ->
       creator: @teacher.id
       level: original: @levelJSPrimer1.get('original').toString()
       permissions: simplePermissions
+      codeLanguage: 'python'
     yield @sessionJSPrimer1.save()
 
     campaignJSONA = { name: 'Campaign A', levels: {} }
@@ -364,6 +367,9 @@ describe 'GET /db/course_instance/:handle/levels/:levelOriginal/next', ->
       [res, body] = yield request.postAsync {uri: classroomsURL, json: data }
       expect(res.statusCode).toBe(201)
       @classroom = yield Classroom.findById(res.body._id)
+      
+      yield @sessionA.update({$set: {codeLanguage: 'python'}})
+      yield @sessionB.update({$set: {codeLanguage: 'python'}})
 
       url = getURL('/db/course_instance')
 

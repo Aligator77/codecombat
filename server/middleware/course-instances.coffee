@@ -93,7 +93,11 @@ module.exports =
     # Get level completions and playtime
     currentLevelSession = null
     levelIDs = (level.original.toString() for level in courseLevels)
-    query = {$and: [{creator: req.user.id}, {'level.original': {$in: levelIDs}}]}
+    query = {$and: [
+      {creator: req.user.id},
+      {'level.original': {$in: levelIDs}}
+      {codeLanguage: classroom.get('aceConfig.language')}
+    ]}
     levelSessions = yield LevelSession.find(query, {level: 1, playtime: 1, state: 1})
     levelCompleteMap = {}
     for levelSession in levelSessions
